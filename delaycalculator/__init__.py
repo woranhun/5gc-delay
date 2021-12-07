@@ -35,16 +35,32 @@ class DelayCalculator:
             ngap_layers = [i for i in pkt.layers if i.layer_name == "ngap"]
             if ngap_layers:
                 for layer in ngap_layers:
-                    if hasattr(layer, 'initialuemessage_element') and int(
-                            layer.nas_5gs_mm_message_type) == 65:  # Message type: Registration request (0x41)
+                    if hasattr(layer, 'initialuemessage_element') \
+                            and hasattr(layer, 'nas_5gs_mm_message_type') \
+                            and int(layer.nas_5gs_mm_message_type) == 65:  # Message type: Registration request (0x41)
                         ue = UE(int(layer.nas_5gs_mm_suci_supi_null_scheme))
                         ue.packets["24"] = pkt
                         self.UEs.append(ue)
-                    if hasattr(layer, 'gsm_a_dtap_autn') and int(
-                            layer.nas_5gs_mm_message_type) == 86:  # Message type: Authentication request (0x56)
+                    elif hasattr(layer, 'gsm_a_dtap_autn') \
+                            and hasattr(layer, 'nas_5gs_mm_message_type') \
+                            and int(layer.nas_5gs_mm_message_type) == 86:  # Message type: Authentication request (0x56)
                         for ue in self.UEs:
                             if ue.autn['5gAuthData']['autn'] == str(layer.gsm_a_dtap_autn).replace(':', ''):
                                 ue.packets["38"] = pkt
+                                ue.ran_ue_ngap_id = int(layer.ran_ue_ngap_id)
+                                ue.amf_ue_ngap_id = int(layer.amf_ue_ngap_id)
+                    elif hasattr(layer, 'uplinknastransport_element') \
+                            and hasattr(layer, 'nas_5gs_mm_message_type') \
+                            and int(layer.nas_5gs_mm_message_type) == 87:  # Message type: Authentication request (0x57)
+                        for ue in self.UEs:
+                            if ue.amf_ue_ngap_id == int(layer.amf_ue_ngap_id):
+                                ue.packets["39"] = pkt
+                    elif hasattr(layer, 'downlinknastransport_element') \
+                            and hasattr(layer, 'nas_5gs_security_header_type') \
+                            and int(layer.nas_5gs_security_header_type) == 3:
+                        for ue in self.UEs:
+                            if ue.amf_ue_ngap_id == int(layer.amf_ue_ngap_id):
+                                ue.packets["40"] = pkt
 
             elif pkt.highest_layer == 'HTTP2' \
                     and hasattr(pkt.http2, 'header') \
