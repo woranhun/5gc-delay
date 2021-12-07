@@ -40,7 +40,8 @@ class DelayCalculator:
                         ue = UE(int(layer.nas_5gs_mm_suci_supi_null_scheme))
                         ue.packets["24"] = pkt
                         self.UEs.append(ue)
-                    if hasattr(layer, 'gsm_a_dtap_autn'):
+                    if hasattr(layer, 'gsm_a_dtap_autn') and int(
+                            layer.nas_5gs_mm_message_type) == 86:  # Message type: Authentication request (0x56)
                         for ue in self.UEs:
                             if ue.autn['5gAuthData']['autn'] == str(layer.gsm_a_dtap_autn).replace(':', ''):
                                 ue.packets["38"] = pkt
