@@ -17,13 +17,15 @@ class DelayCalculator:
         self.stream_ids_33_37 = {}
         self.stream_ids_47_48 = {}
         self.stream_ids_49_50 = {}
+        self.stream_ids_51_52 = {}
+        self.stream_ids_60_61 = {}
         self.amf_total_delay = 0
-        # '/nudr-dr/v1/subscription-data/imsi-001010000000002/context-data/amf-3gpp-access'
-        self.eventHelix4748PathPattern = re.compile(
-            "^/nudr-dr/v1/subscription-data/imsi-[0-9]+/context-data/amf-3gpp-access$")
+        # '/nudm-uecm/v1/imsi-001010000000004/registrations/amf-3gpp-access'
+        self.eventHelix4748PathPattern = re.compile("^/nudm-uecm/v1/imsi-[0-9]+/registrations/amf-3gpp-access$")
         # '/nudm-sdm/v2/imsi-001010000000002/am-data'
-        self.eventHelix4950PathPattern = re.compile(
-            "^/nudm-sdm/v2/imsi-[0-9]+/am-data$")
+        self.eventHelix4950PathPattern = re.compile("^/nudm-sdm/v2/imsi-[0-9]+/am-data$")
+        # '/nudm-sdm/v2/imsi-001010000000004/ue-context-in-smf-data'
+        self.eventHelix5152PathPattern = re.compile("^/nudm-sdm/v2/imsi-[0-9]+/ue-context-in-smf-data$")
 
     def toStreamKey(self, tcpId: int, http2Id: int) -> str:
         return "tcp:{0}-http2:{1}".format(tcpId, http2Id)
@@ -76,6 +78,11 @@ class DelayCalculator:
                         for ue in self.UEs:
                             if ue.amf_ue_ngap_id == int(layer.amf_ue_ngap_id):
                                 ue.packets["41"].append(pkt)
+                    elif hasattr(layer, 'initialcontextsetuprequest_element') \
+                            and layer.initialcontextsetuprequest_element == "InitialContextSetupRequest":
+                        for ue in self.UEs:
+                            if ue.amf_ue_ngap_id == int(layer.amf_ue_ngap_id):
+                                ue.packets["76"].append(pkt)
 
             elif pkt.highest_layer == 'HTTP2' \
                     and hasattr(pkt.http2, 'header') \
@@ -114,7 +121,7 @@ class DelayCalculator:
                     and hasattr(pkt.http2, 'header') \
                     and str(pkt.http2.header) == 'Header: :method: PUT' \
                     and self.eventHelix4748PathPattern.match(str(pkt.http2.headers_path)):
-                imsi = str(pkt.http2.headers_path).split('/')[4].split('-')[1]
+                imsi = str(pkt.http2.headers_path).split('/')[3].split('-')[1]
                 suci = int(imsi[len(imsi) - 10:])
                 ue = self.findUEBySUCI(suci)
                 ue.packets["47"].append(pkt)
@@ -158,6 +165,61 @@ class DelayCalculator:
                     ue.packets["50"].append(pkt)
                     self.stream_ids_49_50[self.toStreamKey(int(pkt.tcp.stream), int(pkt.http2.streamid))] = [stream[0],
                                                                                                              3]
+            elif pkt.highest_layer == 'HTTP2' \
+                    and hasattr(pkt.http2, 'header') \
+                    and str(pkt.http2.header) == 'Header: :method: GET' \
+                    and self.eventHelix5152PathPattern.match(str(pkt.http2.headers_path)):
+                imsi = str(pkt.http2.headers_path).split('/')[3].split('-')[1]
+                suci = int(imsi[len(imsi) - 10:])
+                ue = self.findUEBySUCI(suci)
+                ue.packets["51"].append(pkt)
+                self.stream_ids_51_52[self.toStreamKey(int(pkt.tcp.stream), int(pkt.http2.streamid))] = [suci, 1]
+            elif pkt.highest_layer == 'HTTP2' \
+                    and hasattr(pkt.http2, 'streamid') \
+                    and self.toStreamKey(int(pkt.tcp.stream),
+                                         int(pkt.http2.streamid)) in self.stream_ids_51_52.keys():
+                stream = self.stream_ids_51_52[self.toStreamKey(int(pkt.tcp.stream),
+                                                                int(pkt.http2.streamid))]
+                ue = self.findUEBySUCI(stream[0])
+                if stream[1] == 1:
+                    ue.packets["52"].append(pkt)
+                    self.stream_ids_51_52[self.toStreamKey(int(pkt.tcp.stream), int(pkt.http2.streamid))] = [stream[0],
+                                                                                                             2]
+                elif stream[1] == 2:
+                    ue.packets["52"].append(pkt)
+                    self.stream_ids_51_52[self.toStreamKey(int(pkt.tcp.stream), int(pkt.http2.streamid))] = [stream[0],
+                                                                                                             3]
+            elif pkt.highest_layer == 'HTTP2' \
+                    and hasattr(pkt.http2, 'header') \
+                    and str(pkt.http2.header) == 'Header: :method: POST' \
+                    and (str(pkt.http2.headers_path)) == "/npcf-am-policy-control/v1/policies":
+                npcf_header_pkt = pkt
+                self.stream_ids_60_61[self.toStreamKey(int(pkt.tcp.stream), int(pkt.http2.streamid))] = [None, 1]
+
+            elif pkt.highest_layer == 'HTTP2' \
+                    and hasattr(pkt.http2, 'streamid') \
+                    and self.toStreamKey(int(pkt.tcp.stream),
+                                         int(pkt.http2.streamid)) in self.stream_ids_60_61.keys():
+                stream = self.stream_ids_60_61[self.toStreamKey(int(pkt.tcp.stream),
+                                                                int(pkt.http2.streamid))]
+                if stream[1] == 1:
+                    imsi = str(pkt.http2.json_value_string).split('/')[5].split('-')[1]
+                    suci = int(imsi[len(imsi) - 10:])
+                    ue = self.findUEBySUCI(suci)
+                    ue.packets["60"].append(npcf_header_pkt)
+                    ue.packets["60"].append(pkt)
+                    self.stream_ids_60_61[self.toStreamKey(int(pkt.tcp.stream), int(pkt.http2.streamid))] = [suci,
+                                                                                                             2]
+                elif stream[1] == 2:
+                    ue = self.findUEBySUCI(stream[0])
+                    ue.packets["61"].append(pkt)
+                    self.stream_ids_60_61[self.toStreamKey(int(pkt.tcp.stream), int(pkt.http2.streamid))] = [stream[0],
+                                                                                                             3]
+                elif stream[1] == 3:
+                    ue = self.findUEBySUCI(stream[0])
+                    ue.packets["61"].append(pkt)
+                    self.stream_ids_60_61[self.toStreamKey(int(pkt.tcp.stream), int(pkt.http2.streamid))] = [stream[0],
+                                                                                                             4]
 
         for ue in self.UEs:
             ue.displayTotalDelay()
