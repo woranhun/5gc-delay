@@ -70,6 +70,12 @@ class DelayCalculator:
                         for ue in self.UEs:
                             if ue.amf_ue_ngap_id == int(layer.amf_ue_ngap_id):
                                 ue.packets["40"].append(pkt)
+                    elif hasattr(layer, 'uplinknastransport_element') \
+                            and hasattr(layer, 'nas_5gs_security_header_type') \
+                            and int(layer.nas_5gs_security_header_type) == 4:  # Event Helix 41
+                        for ue in self.UEs:
+                            if ue.amf_ue_ngap_id == int(layer.amf_ue_ngap_id):
+                                ue.packets["41"].append(pkt)
 
             elif pkt.highest_layer == 'HTTP2' \
                     and hasattr(pkt.http2, 'header') \

@@ -4,8 +4,7 @@ import pyshark.packet.packet
 class UE:
 
     def __init__(self, suci: int):
-        self.packets = {"24": list(), "33": list(), "37": list(), "38": list(), "39": list(), "40": list(),
-                        "47": list(), "48": list(), "49": list(), "50": list()}
+        self.packets = {key: list() for key in ["24", "33", "37", "38", "39", "40", "41", "47", "48", "49", "50"]}
         self.suci = suci
         self.amf_delay = 0
         self.autn = None
@@ -42,6 +41,13 @@ class UE:
         print("SUCI: [{0}] - EventHelix 39 and 40 - delay: {1:0.6f} s".format(self.suci,
                                                                               dt))
 
+    def Calculate_41_47(self) -> None:
+        dt = self.calculateDeltaT(self.packets["41"][0],
+                                  self.packets["47"][0])
+        self.amf_delay += dt
+        print("SUCI: [{0}] - EventHelix 41 and 47 - delay: {1:0.6f} s".format(self.suci,
+                                                                              dt))
+
     def Calculate_47_48(self) -> None:
         dt = self.calculateDeltaT(self.packets["47"][0],
                                   self.packets["47"][1])
@@ -52,20 +58,21 @@ class UE:
         print("SUCI: [{0}] - EventHelix 47 and 48 - delay: {1:0.6f} s".format(self.suci,
                                                                               dt))
 
-    def Calculate_49_50(self) -> None:
-        dt = self.calculateDeltaT(self.packets["49"][0],
-                                  self.packets["49"][1])
+    def Calculate_48_49(self) -> None:
+        dt = self.calculateDeltaT(self.packets["48"][0],
+                                  self.packets["49"][0])
 
-        dt += self.calculateDeltaT(self.packets["49"][1],
-                                   self.packets["50"][0])
+        dt += self.calculateDeltaT(self.packets["49"][0],
+                                   self.packets["49"][1])
         self.amf_delay += dt
-        print("SUCI: [{0}] - EventHelix 49 and 50 - delay: {1:0.6f} s".format(self.suci,
+        print("SUCI: [{0}] - EventHelix 48 and 49 - delay: {1:0.6f} s".format(self.suci,
                                                                               dt))
 
     def displayTotalDelay(self) -> None:
         self.Calculate_24_33()
         self.Calculate_37_38()
         self.Calculate_39_40()
+        self.Calculate_41_47()
         self.Calculate_47_48()
-        self.Calculate_49_50()
+        self.Calculate_48_49()
         print("Total AMF delay for SUCI [{0}] - {1:0.6f} ".format(self.suci, self.amf_delay))
