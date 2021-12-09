@@ -41,7 +41,7 @@ class DelayCalculator:
             if ue.suci == suci:
                 return ue
 
-    def calculate(self) -> None:
+    def calculate(self) -> float:
         for i, pkt in enumerate(self.cap):
             ngap_layers = [i for i in pkt.layers if i.layer_name == "ngap"]
             if ngap_layers:
@@ -56,7 +56,8 @@ class DelayCalculator:
                             and hasattr(layer, 'nas_5gs_mm_message_type') \
                             and int(layer.nas_5gs_mm_message_type) == 86:  # Message type: Authentication request (0x56)
                         for ue in self.UEs:
-                            if ue.autn['5gAuthData']['autn'] == str(layer.gsm_a_dtap_autn).replace(':', ''):
+                            if ue.autn is not None and ue.autn['5gAuthData']['autn'] == str(
+                                    layer.gsm_a_dtap_autn).replace(':', ''):
                                 ue.packets["38"].append(pkt)
                                 ue.ran_ue_ngap_id = int(layer.ran_ue_ngap_id)
                                 ue.amf_ue_ngap_id = int(layer.amf_ue_ngap_id)
@@ -222,6 +223,9 @@ class DelayCalculator:
                                                                                                              4]
 
         for ue in self.UEs:
-            ue.displayTotalDelay()
+            # ue.displayTotalDelay()
+            ue.calculateTotalDelay()
             self.amf_total_delay += ue.amf_delay
-            print("TOTAL delay for AMF: {0:0.6f} s".format(self.amf_total_delay))
+        print("TOTAL delay for AMF: {0:0.6f} s".format(self.amf_total_delay))
+        self.cap.close()
+        return self.amf_total_delay

@@ -6,11 +6,13 @@ class UE:
     def __init__(self, suci: int):
         self.packets = {key: list() for key in ["24", "33", "37", "38", "39", "40", "41",
                                                 "47", "48", "49", "50", "51", "52", "60", "61", "76"]}
+
         self.suci = suci
-        self.amf_delay = 0
         self.autn = None
         self.ran_ue_ngap_id = 0
         self.amf_ue_ngap_id = 0
+
+        self.amf_delay = 0
 
     def addMessage(self, packet: pyshark.packet.packet.Packet, evetHelixId: int) -> None:
         self.packets[evetHelixId] = packet
@@ -65,7 +67,8 @@ class UE:
         self.amf_delay += dt
         print("SUCI: [{0}] - EventHelix 61 and 76 - delay: {1:0.6f} s".format(self.suci, dt))
 
-    def displayTotalDelay(self) -> None:
+    def calculateTotalDelay(self) -> None:
+        self.amf_delay = 0
         self.Calculate_24_33()
         self.Calculate_37_38()
         self.Calculate_39_40()
@@ -74,4 +77,7 @@ class UE:
         self.Calculate_50_51()
         self.Calculate_52_60()
         self.Calculate_61_76()
+
+    def displayTotalDelay(self) -> None:
+        self.calculateTotalDelay()
         print("Total AMF delay for SUCI [{0}] - {1:0.6f} ".format(self.suci, self.amf_delay))
